@@ -6,10 +6,11 @@
 
 # Android Studio related
 /.idea/
-**.iml
+*.iml
 
 # Build outputs and intermediates
-/**/build/
+/build/
+/*/build/
 
 # Local environment related
 /local.properties
