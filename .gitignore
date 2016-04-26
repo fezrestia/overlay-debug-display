@@ -1,0 +1,16 @@
+# Gradle related
+/.gradle/
+/gradle/
+/gradlew
+/gradlew.bat
+
+# Android Studio related
+/.idea/
+**.iml
+
+# Build outputs and intermediates
+/**/build/
+
+# Local environment related
+/local.properties
+
