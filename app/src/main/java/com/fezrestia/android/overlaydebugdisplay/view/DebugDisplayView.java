@@ -11,8 +11,18 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import com.fezrestia.android.overlaydebugdisplay.OverlayDebugDisplayApplication;
 import com.fezrestia.android.util.log.Log;
 import com.fezrestia.android.overlaydebugdisplay.R;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 public class DebugDisplayView extends FrameLayout {
     // Log tag.
@@ -39,17 +49,17 @@ public class DebugDisplayView extends FrameLayout {
     private static final int INTERACTIVE_FLAGS = 0 // Dummy
             | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+//            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
             | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-            | WindowManager.LayoutParams.FLAG_FULLSCREEN
+//            | WindowManager.LayoutParams.FLAG_FULLSCREEN
             | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             ;
     private static final int NOT_INTERACTIVE_FLAGS = 0 // Dummy
             | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
-            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+//            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
             | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-            | WindowManager.LayoutParams.FLAG_FULLSCREEN
+//            | WindowManager.LayoutParams.FLAG_FULLSCREEN
             | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             ;
@@ -138,7 +148,7 @@ public class DebugDisplayView extends FrameLayout {
     }
 
     private void updateWindowParams() {
-        mWindowLayoutParams.gravity = Gravity.LEFT | Gravity.TOP;
+        mWindowLayoutParams.gravity = Gravity.CENTER; //Gravity.LEFT | Gravity.TOP;
 
         mWindowLayoutParams.x = 0;
         mWindowLayoutParams.y = 0;
@@ -186,7 +196,7 @@ public class DebugDisplayView extends FrameLayout {
         // Get display size.
         Display display = mWindowManager.getDefaultDisplay();
         Point screenSize = new Point();
-        display.getRealSize(screenSize);
+        display.getSize(screenSize);
         final int width = screenSize.x;
         final int height = screenSize.y;
         mDisplayLongLineLength = Math.max(width, height);
@@ -209,15 +219,164 @@ public class DebugDisplayView extends FrameLayout {
         updateTotalUserInterface();
     }
 
+    //// DEBUG INFO COLLECTOR ///
+
+    private boolean mIsAdbThreadActive = false;
+
+    private ExecutorService mAdbThread = null;
+    private final AdbThreadFactory mAdbThreadFactory = new AdbThreadFactory();
+    private class AdbThreadFactory implements ThreadFactory {
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread thread = new Thread(r);
+            thread.setName("ADB-Thread");
+            return thread;
+        }
+    }
+
+    private static final int MAX_LOG_LINE_COUNT = 128;
+
+    private final List<String> mLogList = new ArrayList<String>();
+
+    private class AdbLogcatClearTask implements Runnable {
+        private final String TAG = "AdbLogcatClearTask";
+
+        @Override
+        public void run() {
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : E");
+
+            try {
+                Runtime.getRuntime().exec("logcat -c");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : X");
+        }
+    }
+
+    private class AdbLogcatLoopTask implements Runnable {
+        private final String TAG = "AdbLogcatLoopTask";
+
+        @Override
+        public void run() {
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : E");
+
+            // Command.
+            String[] command = { "logcat", "-v", "time" };
+
+            Process process = null;
+            BufferedReader reader = null;
+
+            try {
+                if (Log.IS_DEBUG) Log.logDebug(TAG, "TRY runtime.exec");
+                process = Runtime.getRuntime().exec(command);
+
+                if (Log.IS_DEBUG) Log.logDebug(TAG, "TRY process.getInputStream");
+                reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()),
+                        1024); // Buffer size
+
+                String line;
+
+                if (Log.IS_DEBUG) Log.logDebug(TAG, "TRY reader.readLine");
+                while (((line = reader.readLine()) != null) && mIsAdbThreadActive) {
+
+                    synchronized (mLogList) {
+                        if (MAX_LOG_LINE_COUNT < mLogList.size()) {
+                            mLogList.remove(0);
+                        }
+                        mLogList.add(line);
+                    }
+
+                }
+
+//for (String log : mLogList) {
+//    Log.logDebug(TAG, "EACH LOG = " + log);
+//}
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : X");
+        }
+    }
+
+    private static final int RENDERING_INTERVAL_MILLIS = 500;
+
+    private final RenderTask mRenderTask = new RenderTask();
+    private class RenderTask implements Runnable {
+        private final String TAG = "RenderTask";
+
+        @Override
+        public void run() {
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : E");
+
+            StringBuilder sb = new StringBuilder();
+
+            int lineCount = mLogcatTextView.getHeight() / mLogcatTextView.getLineHeight();
+            synchronized (mLogList) {
+                for (int i = mLogList.size() - lineCount; i < mLogList.size(); ++i) {
+                    if (0 <= i) {
+                        sb.append(mLogList.get(i)).append('\n');
+                    }
+                }
+            }
+            mLogcatTextView.setText(sb.toString());
+
+            if (mIsAdbThreadActive) {
+                OverlayDebugDisplayApplication.getUiThreadHandler().postDelayed(
+                        mRenderTask,
+                        RENDERING_INTERVAL_MILLIS);
+            }
+
+            if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : X");
+        }
+    }
+
     public void enable() {
+        if (Log.IS_DEBUG) Log.logDebug(TAG, "enable() : E");
 
+        synchronized (mLogList) {
+            mLogList.clear();
+        }
 
+        OverlayDebugDisplayApplication.getUiThreadHandler().removeCallbacks(mRenderTask);
+        OverlayDebugDisplayApplication.getUiThreadHandler().post(mRenderTask);
 
+        // Thread.
+        if (!mIsAdbThreadActive) {
+            mAdbThread = Executors.newSingleThreadExecutor(mAdbThreadFactory);
+            mIsAdbThreadActive = true;
+        }
+
+        mAdbThread.execute(new AdbLogcatClearTask());
+        mAdbThread.execute(new AdbLogcatLoopTask());
+
+        if (Log.IS_DEBUG) Log.logDebug(TAG, "enable() : X");
     }
 
     public void disable() {
+        if (Log.IS_DEBUG) Log.logDebug(TAG, "disable() : E");
 
+        // Thread.
+        if (mIsAdbThreadActive) {
+            mIsAdbThreadActive = false;
+            mAdbThread.shutdown();
+            mAdbThread = null;
+        }
 
+        OverlayDebugDisplayApplication.getUiThreadHandler().removeCallbacks(mRenderTask);
 
+        if (Log.IS_DEBUG) Log.logDebug(TAG, "disable() : X");
     }
 }

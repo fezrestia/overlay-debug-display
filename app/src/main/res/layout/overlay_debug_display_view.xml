@@ -11,7 +11,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:text="TEST DEBUG STRING"
-            android:textSize="8sp"
+            android:textSize="4sp"
+            android:singleLine="false"
             android:textColor="#FF0000"
     />
 
