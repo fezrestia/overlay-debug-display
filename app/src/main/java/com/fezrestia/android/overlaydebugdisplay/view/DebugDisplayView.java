@@ -8,6 +8,7 @@ import android.text.Html;
 import android.util.AttributeSet;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -53,7 +54,7 @@ public class DebugDisplayView extends FrameLayout {
 //            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
             | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
 //            | WindowManager.LayoutParams.FLAG_FULLSCREEN
-            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+//            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             ;
     private static final int NOT_INTERACTIVE_FLAGS = 0 // Dummy
             | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -62,7 +63,7 @@ public class DebugDisplayView extends FrameLayout {
             | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
 //            | WindowManager.LayoutParams.FLAG_FULLSCREEN
             | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+//            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             ;
 
     // CONSTRUCTOR.
@@ -154,20 +155,23 @@ public class DebugDisplayView extends FrameLayout {
         mWindowLayoutParams.x = 0;
         mWindowLayoutParams.y = 0;
 
-        switch (mOrientation) {
-            case Configuration.ORIENTATION_LANDSCAPE:
-                mWindowLayoutParams.width = mDisplayLongLineLength;
-                mWindowLayoutParams.height = mDisplayShortLineLength;
-                break;
-
-            case Configuration.ORIENTATION_PORTRAIT:
-                mWindowLayoutParams.width = mDisplayShortLineLength;
-                mWindowLayoutParams.height = mDisplayLongLineLength;
-                break;
-
-            default:
-                throw new RuntimeException("Unexpected orientation.");
-        }
+        // Full application layout size.
+        mWindowLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        mWindowLayoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+//        switch (mOrientation) {
+//            case Configuration.ORIENTATION_LANDSCAPE:
+//                mWindowLayoutParams.width = mDisplayLongLineLength;
+//                mWindowLayoutParams.height = mDisplayShortLineLength;
+//                break;
+//
+//            case Configuration.ORIENTATION_PORTRAIT:
+//                mWindowLayoutParams.width = mDisplayShortLineLength;
+//                mWindowLayoutParams.height = mDisplayLongLineLength;
+//                break;
+//
+//            default:
+//                throw new RuntimeException("Unexpected orientation.");
+//        }
 
         if (isAttachedToWindow()) {
             mWindowManager.updateViewLayout(this, mWindowLayoutParams);

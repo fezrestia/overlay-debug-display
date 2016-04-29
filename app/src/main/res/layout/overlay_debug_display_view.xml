@@ -15,4 +15,34 @@
             android:singleLine="false"
     />
 
+
+    <!-- Left -->
+    <View
+        android:layout_width="1px"
+        android:layout_height="match_parent"
+        android:layout_gravity="left"
+        android:background="#FF0000"
+    />
+    <!-- Top -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:layout_gravity="top"
+        android:background="#FF0000"
+        />
+    <!-- Right -->
+    <View
+        android:layout_width="1px"
+        android:layout_height="match_parent"
+        android:layout_gravity="right"
+        android:background="#FF0000"
+        />
+    <!-- Bottom -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:layout_gravity="bottom"
+        android:background="#FF0000"
+        />
+
 </com.fezrestia.android.overlaydebugdisplay.view.DebugDisplayView>
