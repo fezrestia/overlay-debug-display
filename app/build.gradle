@@ -7,8 +7,8 @@ android {
         applicationId "com.fezrestia.android.overlaydebugdisplay"
         minSdkVersion 19
         targetSdkVersion 19
-        versionCode 1
-        versionName '0.01'
+        versionCode 2
+        versionName '0.02'
     }
     buildTypes {
         release {
@@ -17,6 +17,21 @@ android {
         }
     }
     productFlavors {
+    }
+
+    // Define APK name and replace.
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            if (output.outputFile != null && output.outputFile.name.endsWith('.apk')) {
+                // Rename APK.
+                output.outputFile = new File(
+                        "$project.buildDir/outputs/apk/${variant.name}/OverlayDebugDisplay.apk")
+            } else {
+                // Replace.
+                output.outputFile = new File(
+                        "$project.buildDir/outputs/apk/${variant.name}/${output.outputFile.name}")
+            }
+        }
     }
 }
 

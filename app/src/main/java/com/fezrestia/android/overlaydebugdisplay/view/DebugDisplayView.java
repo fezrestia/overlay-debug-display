@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.text.Html;
 import android.util.AttributeSet;
 import android.view.Display;
 import android.view.Gravity;
@@ -263,7 +264,7 @@ public class DebugDisplayView extends FrameLayout {
             if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : E");
 
             // Command.
-            String[] command = { "logcat", "-v", "time" };
+            String[] command = { "logcat" };
 
             Process process = null;
             BufferedReader reader = null;
@@ -311,7 +312,15 @@ public class DebugDisplayView extends FrameLayout {
         }
     }
 
-    private static final int RENDERING_INTERVAL_MILLIS = 500;
+    private static final int RENDERING_INTERVAL_MILLIS = 333;
+
+    private enum LOG_LEVEL {
+        ERROR,
+        WARNING,
+        DEBUG,
+        INFO,
+        VERBOSE,
+    }
 
     private final RenderTask mRenderTask = new RenderTask();
     private class RenderTask implements Runnable {
@@ -326,12 +335,16 @@ public class DebugDisplayView extends FrameLayout {
             int lineCount = mLogcatTextView.getHeight() / mLogcatTextView.getLineHeight();
             synchronized (mLogList) {
                 for (int i = mLogList.size() - lineCount; i < mLogList.size(); ++i) {
-                    if (0 <= i) {
-                        sb.append(mLogList.get(i)).append('\n');
+                    if (i < 0) {
+                        // Skip.
+                        continue;
                     }
+
+                    // HTML format.
+                    sb.append(getHtmlLine(mLogList.get(i)));
                 }
             }
-            mLogcatTextView.setText(sb.toString());
+            mLogcatTextView.setText(Html.fromHtml(sb.toString()));
 
             if (mIsAdbThreadActive) {
                 OverlayDebugDisplayApplication.getUiThreadHandler().postDelayed(
@@ -340,6 +353,60 @@ public class DebugDisplayView extends FrameLayout {
             }
 
             if (Log.IS_DEBUG) Log.logDebug(TAG, "run() : X");
+        }
+
+        private String getHtmlLine(String rawLine) {
+            LOG_LEVEL level = LOG_LEVEL.VERBOSE;
+
+            // Each line font.
+            if (rawLine == null) {
+                // NOP.
+            } else if (rawLine.startsWith("E/")) {
+                level = LOG_LEVEL.ERROR;
+            } else if (rawLine.startsWith("W/")) {
+                level = LOG_LEVEL.WARNING;
+            } else if (rawLine.startsWith("D/")) {
+                level = LOG_LEVEL.DEBUG;
+            } else if (rawLine.startsWith("I/")) {
+                level = LOG_LEVEL.INFO;
+            } else if (rawLine.startsWith("V/")) {
+                level = LOG_LEVEL.VERBOSE;
+            } else {
+                // NOP.
+            }
+
+            // HTML format.
+            StringBuilder sb = new StringBuilder();
+            sb.append("<font color=");
+            switch (level) {
+                case ERROR:
+                    sb.append("#FF0000");
+                    break;
+                case WARNING:
+                    sb.append("#FF0000");
+                    break;
+                case DEBUG:
+                    sb.append("#0000FF");
+                    break;
+                case INFO:
+                    sb.append("#00FF00");
+                    break;
+                case VERBOSE:
+                    sb.append("#FFFFFF");
+                    break;
+            }
+            sb.append(">");
+            if (level == LOG_LEVEL.ERROR) {
+                sb.append("<b>");
+            }
+            sb.append(rawLine);
+            if (level == LOG_LEVEL.ERROR) {
+                sb.append("</b>");
+            }
+            sb.append("</font>");
+            sb.append("<br>");
+
+            return sb.toString();
         }
     }
 
